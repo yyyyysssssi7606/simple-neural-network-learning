@@ -6,7 +6,7 @@ import java.util.List;
 
 public class Main {
 
-    private static final SimpleNet simpleNet = new SimpleNet();
+    private static final SimpleNetOptimized simpleNet = new SimpleNetOptimized(9, 6, 4);
 
     public static void main(String[] args) {
 
@@ -43,36 +43,6 @@ public class Main {
         // 输出训练结果
         simpleNet.printAllData();
     }
-
-    /**
-     * 测试
-     */
-//    public static void test(int answer, int... arr) {
-//        double[] predict = simpleNet.predict(arr);
-//        double maxValue = 0.0;
-//        int maxIndex = 0;
-//        String[] pointArr = {"↑", "→", "↓", "←"};
-//        for (int i = 0; i < predict.length; i++) {
-//            if (predict[i] >= maxValue) {
-//                maxValue = predict[i];
-//                maxIndex = i;
-//            }
-//        }
-//        System.out.println("输入：");
-//        for (int i = 0; i < 3; i++) {
-//            for (int j = 0; j < 3; j++) {
-//                if (i * 3 + j == 4) {
-//                    System.out.print(pointArr[maxIndex]);
-//                    continue;
-//                }
-//                String str = arr[i * 3 + j] == 1 ? "■" : "□";
-//                System.out.print(str);
-//            }
-//            System.out.println();
-//        }
-//        System.out.println("结果：" + Arrays.toString(predict));
-//        System.out.println("答案：1");
-//    }
 
     public static void test(int answer, int... arr) {
         double[] predict = simpleNet.predict(arr);
@@ -113,8 +83,6 @@ public class Main {
      */
     public static void train(int count) {
         count = count <= 1 ? 1 : count;
-        // 初始化权重
-        simpleNet.initWeightLayer();
         for (int i = 0; i < count; i++) {
             System.out.println("第" + (i + 1) + "轮");
             dataMap.forEach((answer, list) -> {
