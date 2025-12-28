@@ -1,12 +1,15 @@
 package org.nettest;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Random;
 
 /**
  * 简单三层神经网络的优化版本
  */
-public class SimpleNetOptimized {
+public class SimpleNetOptimized implements Serializable {
+
+    private static final long serialVersionUID = 197420123977911L;
 
     /**
      * 固定输入层、隐藏层、输出层大小（核心数据）
@@ -21,6 +24,11 @@ public class SimpleNetOptimized {
     private double learningRate = 0.1;
 
     /**
+     *
+     */
+    private double lambda = 0.0001;
+
+    /**
      * 输入层（临时变量，不参与持久化）
      */
     private int[] inputLayer;
@@ -33,7 +41,12 @@ public class SimpleNetOptimized {
     /**
      * 权重层，数量是输入层数量 * 计算结果层数量（核心数据）
      */
-    private double[] inputAndHideWeightLayer;
+    private double[] inputAndHiddenWeightLayer;
+
+    /**
+     * 权重梯度
+     */
+//    private double[] inputAndHiddenGradLayer;
 
     /**
      * 偏导数，用于平移函数（核心数据）
@@ -49,6 +62,11 @@ public class SimpleNetOptimized {
      * 权重层，数量是输入层数量 * 输入结果层数量（核心数据）
      */
     private double[] hideAndOutputWeightLayer;
+
+    /**
+     * 权重梯度
+     */
+//    private double[] hideAndOutputGradLayer;
 
     /**
      * 偏导数，用于平移函数（核心数据）
@@ -67,8 +85,8 @@ public class SimpleNetOptimized {
      * @param dataArray
      */
     public void setInput(int... dataArray) {
-        if (dataArray.length != 9) {
-            throw new RuntimeException("输入数据量必须为9个！");
+        if (dataArray.length != inputLayerSize) {
+            throw new RuntimeException("输入数据量必须为" + inputLayerSize + "个，当前数组大小为：" + dataArray.length);
         }
         for (int i = 0; i < dataArray.length; i++) {
             this.inputLayer[i] = dataArray[i];
@@ -96,12 +114,15 @@ public class SimpleNetOptimized {
         if(inputLayerSize < 3) {
             throw new RuntimeException("输入层大小不能小于3");
         }
+        this.inputLayerSize = inputLayerSize;
         if(hiddenLayerSize < 3) {
             throw new RuntimeException("隐藏层大小不能小于3");
         }
+        this.hiddenLayerSize = hiddenLayerSize;
         if(outputLayerSize < 3) {
             throw new RuntimeException("输出层大小不能小于3");
         }
+        this.outputLayerSize = outputLayerSize;
         initLayer();
     }
 
@@ -111,14 +132,16 @@ public class SimpleNetOptimized {
     private void initLayer() {
 
         inputLayer = new int[inputLayerSize];
-        inputAndHideWeightLayer = new double[inputLayerSize * hiddenLayerSize];
+        inputAndHiddenWeightLayer = new double[inputLayerSize * hiddenLayerSize];
+//        inputAndHiddenGradLayer = new double[inputLayerSize * hiddenLayerSize];
         hiddenLayerBiasArray = new double[hiddenLayerSize];
         hideLayer = new double[hiddenLayerSize];
         hideAndOutputWeightLayer = new double[hiddenLayerSize * outputLayerSize];
+//        hideAndOutputGradLayer = new double[hiddenLayerSize * outputLayerSize];
         outputLayerBiasArray = new double[outputLayerSize];
         outputLayer = new double[outputLayerSize];
 
-        randomValue(inputAndHideWeightLayer);
+        randomValue(inputAndHiddenWeightLayer);
         randomValue(hideAndOutputWeightLayer);
         randomValue(hiddenLayerBiasArray);
         randomValue(outputLayerBiasArray);
@@ -203,7 +226,7 @@ public class SimpleNetOptimized {
                 inputNum = inputLayer[inputPoint];
                 // 这里计算要更新的层位置，比如0-100，每层10个房间，第0层的十位数就是0，加上个位数inputPoint就是对应房间号码
                 inputAndHideWeightLayerPoint = (hiddenPoint * inputLayerSize) + inputPoint;
-                inputAndHideWeightLayer[inputAndHideWeightLayerPoint] += -learningRate * hiddenError[hiddenPoint] * inputNum;
+                inputAndHiddenWeightLayer[inputAndHideWeightLayerPoint] += -learningRate * hiddenError[hiddenPoint] * inputNum;
             }
             hiddenLayerBiasArray[hiddenPoint] += -learningRate * hiddenError[hiddenPoint];
         }
@@ -229,7 +252,7 @@ public class SimpleNetOptimized {
                 // 这里计算要更新的层位置，比如0-100，每层10个房间，第0层的十位数就是0，加上个位数inputPoint就是对应房间号码
                 inputAndHideWeightLayerPoint = (hiddenPoint * inputLayerSize) + inputPoint;
                 // 计算权重
-                calc = calc + (inputNum * inputAndHideWeightLayer[inputAndHideWeightLayerPoint]);
+                calc = calc + (inputNum * inputAndHiddenWeightLayer[inputAndHideWeightLayerPoint]);
             }
             // 添加偏导数（用于平移函数图像）
             calc = calc + hiddenLayerBiasArray[hiddenPoint];
@@ -260,7 +283,7 @@ public class SimpleNetOptimized {
             calc = 0.0;
         }
 
-        double[] softmax = softmax2();
+        double[] softmax = softmax();
 
         return softmax;
     }
@@ -283,7 +306,7 @@ public class SimpleNetOptimized {
     /**
      * 根据当前神经网络，计算出最终的结果，用于显示
      */
-    private double[] softmax2() {
+    private double[] softmax() {
         double[] softmaxArray = new double[outputLayerSize];
         // 找最大值（防溢出）
         double max = outputLayer[0];
@@ -306,6 +329,37 @@ public class SimpleNetOptimized {
     }
 
     /**
+     * 正则化
+     *
+     * @return
+     */
+    private double l2Regularization(double[] weightList) {
+        double sum = 0.0;
+        // 遍历权重矩阵 W，累加 w^2
+        for (double w : weightList) {
+            // w²
+            sum += w * w;
+        }
+        // λ·Σw²
+        return lambda * sum;
+    }
+
+    /**
+     * 计算梯度时：对 W 的每个元素加 2λw 项
+     *
+     * @param weightList
+     * @param gradWeightList
+     */
+    public void addL2Gradient(double[] weightList, double[] gradWeightList) {
+        for (int weightPoint = 0; weightPoint < weightList.length; weightPoint++) {
+            // grad_W[i][j] 已由反向传播算出，此处原地 += 正则梯度
+            // ∂/∂w (λw²) = 2λw
+            gradWeightList[weightPoint] += 2 * lambda * weightList[weightPoint];
+        }
+    }
+
+
+    /**
      * 使用答案构造向量，用于反向传播
      *
      * @return
@@ -325,11 +379,29 @@ public class SimpleNetOptimized {
         System.out.println("隐藏层大小：" + this.hiddenLayerSize);
         System.out.println("输出层大小：" + this.outputLayerSize);
         System.out.println("学习率：" + this.learningRate);
-        System.out.println("权重1：" + Arrays.toString(this.inputAndHideWeightLayer));
+        System.out.println("权重1：" + Arrays.toString(this.inputAndHiddenWeightLayer));
         System.out.println("偏置1：" + Arrays.toString(this.hiddenLayerBiasArray));
         System.out.println("权重2：" + Arrays.toString(this.hideAndOutputWeightLayer));
         System.out.println("偏置2：" + Arrays.toString(this.outputLayerBiasArray));
     }
 
+    public void setInputLayerSize(int inputLayerSize) {
+        this.inputLayerSize = inputLayerSize;
+    }
 
+    public void setHiddenLayerSize(int hiddenLayerSize) {
+        this.hiddenLayerSize = hiddenLayerSize;
+    }
+
+    public void setOutputLayerSize(int outputLayerSize) {
+        this.outputLayerSize = outputLayerSize;
+    }
+
+    public void setLearningRate(double learningRate) {
+        this.learningRate = learningRate;
+    }
+
+    public void setLambda(double lambda) {
+        this.lambda = lambda;
+    }
 }
