@@ -6,7 +6,7 @@ import java.util.List;
 
 public class Main {
 
-    private static final SimpleNetOptimized simpleNet = new SimpleNetOptimized(9, 6, 4);
+    private static final SimpleNetOptimizedInteger simpleNet = new SimpleNetOptimizedInteger(9, 6, 4);
 
     public static void main(String[] args) {
 

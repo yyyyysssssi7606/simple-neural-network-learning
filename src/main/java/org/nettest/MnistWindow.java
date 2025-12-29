@@ -4,9 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.image.BufferedImage;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 
@@ -15,40 +13,79 @@ public class MnistWindow extends JFrame {
     /**
      * 创建手写数字识别的神经网络
      */
-    private static final String MODAL_PATH = "./SimpleNetOptimized/SimpleNetOptimized-9.object";
-    private static final SimpleNetOptimized modal = (SimpleNetOptimized) deserializeObject(MODAL_PATH);
+    private static final String MODAL_PATH = "./SimpleNetOptimized/SimpleNetOptimizedDouble-9.object";
+    private static final SimpleNetOptimizedDouble modal = (SimpleNetOptimizedDouble) deserializeObject(MODAL_PATH);
 
     private static final int LOGICAL_WIDTH = 28;
     private static final int LOGICAL_HEIGHT = 28;
     // 缩放倍数：28*10 = 280px 显示画布
     private static final int SCALE = 10;
-    private static final int CANVAS_WIDTH = LOGICAL_WIDTH * SCALE;
-    private static final int CANVAS_HEIGHT = LOGICAL_HEIGHT * SCALE;
+    // 实际innerWidth为270，需要加10
+    private static final int CANVAS_WIDTH = LOGICAL_WIDTH * SCALE + 10;
+    // 实际innerHeight为257，需要加23
+    private static final int CANVAS_HEIGHT = LOGICAL_HEIGHT * SCALE + 23;
 
     // true=黑
-    private final int[] pixels = new int[LOGICAL_HEIGHT * LOGICAL_WIDTH];
+    private final double[] pixels = new double[LOGICAL_HEIGHT * LOGICAL_WIDTH];
     private final JPanel canvasPanel = new JPanel() {
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             Graphics2D g2d = (Graphics2D) g;
+
+            // 获取边框内边距
+            Insets ins = getInsets();
+            int drawX = ins.left;
+            int drawY = ins.top;
+            int drawW = getWidth() - ins.left - ins.right;
+            int drawH = getHeight() - ins.top - ins.bottom;
+
+//            System.out.println(drawW + "/" + drawH);
+
             g2d.setColor(Color.WHITE);
-            g2d.fillRect(0, 0, getWidth(), getHeight());
+            g2d.fillRect(drawX, drawY,drawW, drawH);
             g2d.setColor(Color.BLACK);
 
             // 绘制网格（可选，方便对齐）
-            // g2d.setStroke(new BasicStroke(0.5f));
-            // for (int i = 0; i <= LOGICAL_WIDTH; i++) g2d.drawLine(i * SCALE, 0, i * SCALE, CANVAS_HEIGHT);
-            // for (int i = 0; i <= LOGICAL_HEIGHT; i++) g2d.drawLine(0, i * SCALE, CANVAS_WIDTH, i * SCALE);
+//             g2d.setStroke(new BasicStroke(0.2f));
+//            g2d.setColor(new Color(255, 0, 0, 50));
+//             for (int i = 0; i <= LOGICAL_WIDTH; i++) g2d.drawLine(i * SCALE, 0, i * SCALE, CANVAS_HEIGHT);
+//             for (int i = 0; i <= LOGICAL_HEIGHT; i++) g2d.drawLine(0, i * SCALE, CANVAS_WIDTH, i * SCALE);
 
-            // 绘制已激活像素
+            // 关键：按灰度值绘制每个 cell, 绘制已激活像素
             for (int y = 0; y < LOGICAL_HEIGHT; y++) {
                 for (int x = 0; x < LOGICAL_WIDTH; x++) {
-                    if (pixels[y * LOGICAL_WIDTH + x] == 1) {
-                        g2d.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+                    double gray = pixels[y * LOGICAL_WIDTH + x];
+                    if (gray > 0) {
+                        // 将 [0,1] → RGB 灰度：(255,255,255) ~ (0,0,0)
+                        int gray255 = (int) (255 * (1 - gray)); // 注意：gray=1 时为黑
+                        g2d.setColor(new Color(gray255, gray255, gray255));
+                        g2d.fillRect(drawX + x * SCALE, drawY + y * SCALE, SCALE, SCALE);
                     }
                 }
             }
+
+            // 绘制已激活像素
+//            for (int y = 0; y < LOGICAL_HEIGHT; y++) {
+//                for (int x = 0; x < LOGICAL_WIDTH; x++) {
+//                    if (pixels[y * LOGICAL_WIDTH + x] == 1) {
+//                        g2d.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+//                    }
+//                }
+//            }
+
+            // 🟦 绘制 22×22 居中辅助框（回字形内框）
+            int innerSize = 22;
+            // = 3，左右各留 3 像素
+            int pad = (LOGICAL_WIDTH - innerSize) / 2;
+            int x0 = drawX + pad * SCALE;
+            int y0 = drawY + pad * SCALE;
+            int w = innerSize * SCALE;
+            int h = innerSize * SCALE;
+
+            g2d.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 5f, new float[]{6, 4}, 0));
+            g2d.setColor(new Color(255, 0, 0, 80));
+            g2d.drawRect(x0, y0, w, h);
         }
     };
 
@@ -72,13 +109,13 @@ public class MnistWindow extends JFrame {
         JPanel controlPanel = new JPanel();
         controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
         controlPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        controlPanel.setPreferredSize(new Dimension(120, 300));
 
         JButton clearBtn = new JButton("清空");
         clearBtn.addActionListener(e -> clearCanvas());
 
         JButton recognizeBtn = new JButton("识别");
         recognizeBtn.addActionListener(e -> recognize());
-
 
 
         controlPanel.add(clearBtn);
@@ -113,16 +150,51 @@ public class MnistWindow extends JFrame {
     /**
      * 1像素画笔
      */
+//    private void drawAt(int x, int y) {
+//        // 转为逻辑坐标（0~27）
+//        int gridX = Math.max(0, Math.min(LOGICAL_WIDTH - 1, x / SCALE));
+//        int gridY = Math.max(0, Math.min(LOGICAL_HEIGHT - 1, y / SCALE));
+//        pixels[gridY * LOGICAL_WIDTH + gridX] = 0.8;
+//        canvasPanel.repaint();
+//    }
+
+
+    /**
+     * 2像素软笔刷（灰度叠加）
+     *
+     * @param x
+     * @param y
+     */
     private void drawAt(int x, int y) {
-        // 转为逻辑坐标（0~27）
         int gridX = Math.max(0, Math.min(LOGICAL_WIDTH - 1, x / SCALE));
         int gridY = Math.max(0, Math.min(LOGICAL_HEIGHT - 1, y / SCALE));
-        pixels[gridY * LOGICAL_WIDTH + gridX] = 1;
+
+        // 🖌️ 3×3 高斯加权笔刷（中心强，边缘弱）—— 更自然
+        double[][] brush = {
+                {0.1, 0.7, 0.1},
+                {0.5, 1.0, 0.1},
+                {0.5, 0.7, 0.5}
+        };
+
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                int nx = gridX + dx;
+                int ny = gridY + dy;
+                if (nx >= 0 && nx < LOGICAL_WIDTH && ny >= 0 && ny < LOGICAL_HEIGHT) {
+                    int idx = ny * LOGICAL_WIDTH + nx;
+                    // 控制增量强度
+                    double newVal = pixels[idx] + brush[dy + 1][dx + 1] * 0.8;
+                    // 截断到 [0,1]
+                    pixels[idx] = Math.min(1.0, newVal);
+                }
+            }
+        }
         canvasPanel.repaint();
     }
 
     /**
      * 2像素画笔
+     *
      * @param x
      * @param y
      */
@@ -142,7 +214,6 @@ public class MnistWindow extends JFrame {
 //        }
 //        canvasPanel.repaint();
 //    }
-
     private void clearCanvas() {
         for (int y = 0; y < LOGICAL_HEIGHT; y++) {
             for (int x = 0; x < LOGICAL_WIDTH; x++) {
@@ -163,13 +234,16 @@ public class MnistWindow extends JFrame {
             double score = predict[i];
             if (score > maxScore) {
                 maxScore = score;
-                maxIndex = i + 1;
+                maxIndex = i;
             }
         }
 
-        JOptionPane.showMessageDialog(this,
-                "当前识别结果：" + maxIndex,
-                "识别结果", JOptionPane.INFORMATION_MESSAGE);
+        // 更新页面上的识别结果
+        resultLabel.setText("识别结果：" + maxIndex);
+
+//        JOptionPane.showMessageDialog(this,
+//                "当前识别结果：" + maxIndex,
+//                "识别结果", JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**

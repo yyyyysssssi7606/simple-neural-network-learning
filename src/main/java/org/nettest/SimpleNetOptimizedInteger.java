@@ -7,7 +7,7 @@ import java.util.Random;
 /**
  * 简单三层神经网络的优化版本
  */
-public class SimpleNetOptimized implements Serializable {
+public class SimpleNetOptimizedInteger implements Serializable {
 
     private static final long serialVersionUID = 197420123977911L;
 
@@ -84,7 +84,7 @@ public class SimpleNetOptimized implements Serializable {
      *
      * @param dataArray
      */
-    public void setInput(int... dataArray) {
+    public void setInput(int...dataArray) {
         if (dataArray.length != inputLayerSize) {
             throw new RuntimeException("输入数据量必须为" + inputLayerSize + "个，当前数组大小为：" + dataArray.length);
         }
@@ -110,7 +110,7 @@ public class SimpleNetOptimized implements Serializable {
      * @param hiddenLayerSize
      * @param outputLayerSize
      */
-    public SimpleNetOptimized(int inputLayerSize, int hiddenLayerSize, int outputLayerSize) {
+    public SimpleNetOptimizedInteger(int inputLayerSize, int hiddenLayerSize, int outputLayerSize) {
         if(inputLayerSize < 3) {
             throw new RuntimeException("输入层大小不能小于3");
         }
@@ -218,7 +218,7 @@ public class SimpleNetOptimized implements Serializable {
             hiddenError[hiddenPoint] = sum * hideLayer[hiddenPoint] * (1 - hideLayer[hiddenPoint]);
         }
 
-        int inputNum = 0;
+        double inputNum = 0;
         int inputAndHideWeightLayerPoint = 0;
         // 更新隐藏层权重，以及隐藏层的偏置参数
         for (int hiddenPoint = 0; hiddenPoint < hiddenLayerSize; hiddenPoint++) {

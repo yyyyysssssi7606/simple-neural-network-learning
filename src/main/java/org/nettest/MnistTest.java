@@ -4,8 +4,6 @@ import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 public class MnistTest {
 
@@ -31,7 +29,7 @@ public class MnistTest {
         });
     }
 
-    private static File trainingDir = new File("E:\\net-projects\\simple-neural-network-learning\\mnist-training");
+    private static File trainingDir = new File("./mnist-training");
 
     /**
      * 整理数据，训练集需要平均，对齐样本数量
@@ -59,7 +57,7 @@ public class MnistTest {
      * 设置三层神经网络
      * 逐步缩小参数
      */
-    private static SimpleNetOptimized net = new SimpleNetOptimized(784, 128, 10);
+    private static SimpleNetOptimizedDouble net = new SimpleNetOptimizedDouble(784, 128, 10);
 
     /**
      * 训练数据，然后保存为json
@@ -82,7 +80,7 @@ public class MnistTest {
                 int num = 0;
                 while (num < 10) {
                     files = dirs[num].listFiles();
-                    int[] image = readImage(files[picIndex]);
+                    double[] image = readImage(files[picIndex]);
                     net.training(num, image);
                     ++ num;
                 }
@@ -90,7 +88,7 @@ public class MnistTest {
             // 打印相关信息
             net.printAllData();
             // 序列化类
-            serializeObject(net, "./SimpleNetOptimized/SimpleNetOptimized-" + i + ".object");
+            serializeObject(net, "./SimpleNetOptimized/" + net.getClass().getSimpleName() + "-" + i + ".object");
         }
 
 
@@ -103,12 +101,10 @@ public class MnistTest {
     /**
      * 测试
      */
-    private static File testDir = new File("E:\\net-projects\\simple-neural-network-learning\\mnist-testing");
+    private static File testDir = new File("./mnist-testing");
     private static void test() throws IOException, ClassNotFoundException {
         // 加载类
-
-        net = (SimpleNetOptimized) deserializeObject("./SimpleNetOptimized/SimpleNetOptimized-9.object");
-
+        net = (SimpleNetOptimizedDouble) deserializeObject("./SimpleNetOptimized/" + net.getClass().getSimpleName() + "-9.object");
 
         File[] files = testDir.listFiles();
         int minSize = 0;
@@ -127,7 +123,7 @@ public class MnistTest {
         for (int i = 0; i < files.length; i++) {
             File[] listFiles = files[i].listFiles();
             for (File image : listFiles) {
-                int[] readImage = readImage(image);
+                double[] readImage = readImage(image);
                 double[] predict = net.predict(readImage);
                 double maxScore = predict[0];
                 int maxIndex = 0;
@@ -147,7 +143,7 @@ public class MnistTest {
 
         System.out.println("正确：" + correctCount);
         System.out.println("错误：" + errorCount);
-        System.out.println("正确率：" + (correctCount / (correctCount + errorCount) * 100) + "%");
+        System.out.println("正确率：" + ((double)correctCount / ((double)correctCount + (double)errorCount) * 100) + "%");
     }
 
     /**
@@ -161,9 +157,9 @@ public class MnistTest {
     private static final int PIC_IMAGE_HEIGHT = 28;
 
     private static final BufferedImage grayImg = new BufferedImage(PIC_IMAGE_WIDTH, PIC_IMAGE_HEIGHT, BufferedImage.TYPE_BYTE_GRAY);
-    public static int[] readImage(File file) throws IOException {
+    public static double[] readImage(File file) throws IOException {
         grayImg.getGraphics().drawImage(ImageIO.read(file), 0, 0, PIC_IMAGE_WIDTH, PIC_IMAGE_HEIGHT, null);
-        int[] resArr = new int[PIC_IMAGE_HEIGHT * PIC_IMAGE_WIDTH];
+        double[] resArr = new double[PIC_IMAGE_HEIGHT * PIC_IMAGE_WIDTH];
         for (int y = 0; y < PIC_IMAGE_HEIGHT; y++) {
             for (int x = 0; x < PIC_IMAGE_WIDTH; x++) {
                 int rgb = grayImg.getRGB(x, y);
@@ -172,7 +168,7 @@ public class MnistTest {
                 int g = (rgb >> 8) & 0xFF;
                 int b = rgb & 0xFF;
                 double gray = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
-                resArr[y * PIC_IMAGE_WIDTH + x] = gray < 0.5 ? 0 : 1;
+                resArr[y * PIC_IMAGE_WIDTH + x] = gray;
             }
         }
         return resArr;
